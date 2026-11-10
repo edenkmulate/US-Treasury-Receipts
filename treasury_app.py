@@ -248,7 +248,77 @@ with col3:
     st.metric(label="Active Revenue Streams", value=str(unique_classes))
 
 st.write("---")
+# ==============================================================================
+# 🌟 NEW INSERTION: DYNAMIC HIGHLIGHTED TREEMAP BREAKDOWN
+# ==============================================================================
+st.markdown("### 🗺️ Revenue Breakdown by Classification")
 
+# 1. Base tracking filter to capture all categories for comparison layout
+macro_map_df = df[
+    (df['record_calendar_year'] == selected_year) &
+    (df['receipt_type'].isin(selected_receipt_types if selected_receipt_types else all_receipt_types))
+]
+if selected_month != "All Months":
+    macro_map_df = macro_map_df[macro_map_df['record_calendar_month'] == selected_month]
+
+if not macro_map_df.empty:
+    # 2. Aggregate totals across all classification options
+    tree_df = macro_map_df.groupby('classification_desc', as_index=False)['amount'].sum()
+    
+    # Filter out macro aggregates safely
+    exclude_list = ["total -- receipts", "total -- on-budget", "total -- off-budget"]
+    tree_df = tree_df[
+        ~tree_df['classification_desc'].str.strip().str.lower().isin(exclude_list)
+    ]
+    
+    # 🌟 NEW: Calculate the percentage share of each individual stream
+    total_tree_amount = tree_df['amount'].sum()
+    if total_tree_amount > 0:
+        tree_df['percentage_share'] = (tree_df['amount'] / total_tree_amount) * 100
+    else:
+        tree_df['percentage_share'] = 0.0
+
+    # Re-evaluate Billion scaling factors on the filtered metrics
+    tree_df['amount_b'] = tree_df['amount'] / 1_000_000_000
+    
+    # 3. Build conditional formatting mapping to highlight the active multiselect value
+    highlight_color = '#636EFA' # Bold Primary Blue
+    neutral_color = '#E5ECF6'   # Soft Neutral Gray
+    
+    # Map color conditions dynamically across the dataset index array
+    tree_df['color_assignment'] = tree_df['classification_desc'].apply(
+        lambda x: highlight_color if x in selected_classifications else neutral_color
+    )
+    
+    # Create the clean discrete mapping dictionary for Plotly
+    color_map_dict = dict(zip(tree_df['classification_desc'], tree_df['color_assignment']))
+    
+    # 4. Generate the visual box matrix layout
+    # 🌟 NEW: Added customdata parameter to carry percentage metrics into the chart traces
+    fig_tree = px.treemap(
+        tree_df,
+        path=['classification_desc'],
+        values='amount_b',
+        title=f"Total Volume Distribution by Stream ($ Billions) - Component Streams Highlighted",
+        labels={'amount_b': 'Receipts (Billions USD)', 'classification_desc': 'Classification Stream'},
+        template="plotly_white",
+        color='classification_desc',
+        color_discrete_map=color_map_dict,
+        custom_data=['percentage_share']
+    )
+    
+    # Format labels inside the boxes cleanly
+    # 🌟 CORRECTION: Custom texttemplate configures whole numbers and the % share suffix string
+    fig_tree.update_traces(
+        texttemplate="<b>%{label}</b><br>$%{value:,.0f}B (%{customdata[0]:.1f}%)",
+        textposition="middle center"
+    )
+    
+    st.plotly_chart(fig_tree, use_container_width=True)
+else:
+    st.info("Select data options in the sidebar to populate the classification treemap matrix.")
+
+st.write("---")
 # ==============================================================================
 # 6. CHARTS SECTION
 # ==============================================================================
