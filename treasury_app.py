@@ -14,14 +14,11 @@ params = {
     "page[number]" : 1
 }
 
-###AR
-proxies = {
-    "http": "http://10.224.0.153:8080",
-    "https": "http://10.224.0.153:8080"
-}
+
+
 
 # First request to get total number of pages
-response = requests.get(base_url + endpoint, params=params, proxies=proxies)    ###AR
+response = requests.get(base_url + endpoint, params=params)
 response.raise_for_status()
 json_data = response.json()
 
@@ -32,7 +29,7 @@ total_pages = json_data.get("meta", {}).get("total-pages", 1)
 # Paginate through all pages
 for page in range(2, total_pages + 1):
     params["page[number]"] = page
-    response = requests.get(base_url + endpoint, params=params, proxies=proxies)    ###AR
+    response = requests.get(base_url + endpoint, params=params) 
     response.raise_for_status()
     all_data.extend(response.json()["data"])
 
